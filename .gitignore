@@ -36,7 +36,6 @@ model/
 word_cloud/
 information/*.txt
 *.zip
-*.whl
 
 # Jupyter Notebook
 .ipynb_checkpoints
