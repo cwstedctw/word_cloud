@@ -1,5 +1,5 @@
 word_cloud_path = ".\word_cloud"
-data_folder_path = ".\data"
+data_folder_path = ".\model"
 
 info_path = '.\information' 
 data_file = f'{info_path}\\110_01\\110-1GCSD_post.xlsx'

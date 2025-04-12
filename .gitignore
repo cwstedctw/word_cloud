@@ -32,11 +32,11 @@ env/
 *.swo
 
 # CKIP specific
-data/
+model/
 word_cloud/
 information/*.txt
-*.whl
 *.zip
+*.whl
 
 # Jupyter Notebook
 .ipynb_checkpoints

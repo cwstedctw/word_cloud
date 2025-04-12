@@ -4,7 +4,7 @@ This project uses the CKIP Tagger for Chinese text analysis. CKIP Tagger is a ne
 
 ## Requirements
 
-- Python 3.7
+- Python 3.7.6
 - Required packages listed in `requirements.txt`
 
 ## Installation
