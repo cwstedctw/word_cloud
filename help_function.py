@@ -5,22 +5,48 @@ from ckiptagger import WS, POS, NER, construct_dictionary, data_utils  # 中文�
 from config import * # 載入設定檔
 from collections import Counter # 移到檔案頂部
 import os # 移到檔案頂部
+from typing import List, Dict, Tuple, Any # Import required types, added Any for read_coldata
+
+
+def check_and_create_folder(folder_path):
+    """
+    檢查指定路徑的資料夾是否存在，若不存在則建立。
+
+    參數:
+    folder_path (str): 要檢查或建立的資料夾路徑。
+    """
+    if not os.path.exists(folder_path):
+        print(f"Folder '{folder_path}' not found. Creating folder...")
+        os.makedirs(folder_path, exist_ok=True) # exist_ok=True 避免資料夾已存在時引發錯誤
+        print(f"Folder '{folder_path}' created successfully.")
+    # else: # 可選：如果資料夾已存在，可以印出訊息
+    #     print(f"Folder '{folder_path}' already exists.")
+
 
 def download_ckip_data():
     """
     檢查 CKIP 模型資料目錄是否存在且非空，若不存在或為空則下載 CKIP 模型資料。
-    此函數會下載約 2GB 的資料至 ./data.zip，並解壓縮至設定檔中 data_folder_path 指定的目錄。
+    此函數會下載約 2GB 的資料至 ./data.zip，並解壓縮至設定檔中 ckip_model_data_path 指定的目錄。
     """
+    # 檢查並建立 config.py 中定義的 ckip_model_data_path
+    check_and_create_folder(ckip_model_data_path) # Use new variable name
+
     # 檢查模型資料夾路徑是否存在，或該路徑下是否為空目錄
-    if not os.path.exists(data_folder_path) or len(os.listdir(data_folder_path)) == 0:
+    if not os.path.exists(ckip_model_data_path) or len(os.listdir(ckip_model_data_path)) == 0: # Use new variable name
+        # Use new variable name in print statement
+        print(f"CKIP model data not found or folder is empty in '{ckip_model_data_path}'. Downloading data...")
         # 從 Google Drive 下載 CKIP 模型資料
-        # 檔案大小約 2GB，將下載至 ./data.zip 並解壓縮至 data_folder_path 指定的目錄
+        # 檔案大小約 2GB，將下載至 ./data.zip 並解壓縮至 ckip_model_data_path 指定的目錄
         # data_utils.download_data_url("./")  # 備用下載來源：從 IIS 伺服器下載
         data_utils.download_data_gdown("./")  # 從 Google Drive 下載
+        print("CKIP model data downloaded and extracted.")
+    else:
+        # Use new variable name in print statement
+        print(f"CKIP model data found in '{ckip_model_data_path}'. Skipping download.")
 
 #-------------------------------------------------------------------------------
 
-def load_removes(file_path: str) -> list:
+def load_removes(file_path: str) -> List[str]: # Use List
     """
     從指定檔案載入需要被移除的字詞清單 (停用詞)。
 
@@ -28,7 +54,7 @@ def load_removes(file_path: str) -> list:
     file_path (str): 包含需要移除字詞的檔案路徑 (通常是 CSV 格式)。
 
     回傳:
-    list: 需要被移除的字詞清單。
+    List[str]: 需要被移除的字詞清單。
     """
     removes = []  # 初始化儲存停用詞的列表
     # 開啟指定的檔案，使用 utf-8-sig 編碼處理可能存在的 BOM，並指定換行符號
@@ -43,7 +69,7 @@ def load_removes(file_path: str) -> list:
 
 #-------------------------------------------------------------------------------
 
-def load_synonyms(synonym_file: str) -> list:
+def load_synonyms(synonym_file: str) -> List[List[str]]: # Use List
     """
     從指定的 CSV 文件載入同義詞詞典，並處理資料格式。
     CSV 檔案中，每一欄代表一組同義詞。
@@ -52,7 +78,7 @@ def load_synonyms(synonym_file: str) -> list:
     synonym_file (str): 同義詞 CSV 文件的路徑。
 
     回傳:
-    list: 處理後的同義詞列表，每個子列表包含一組同義詞。
+    List[List[str]]: 處理後的同義詞列表，每個子列表包含一組同義詞。
           例如: [['電腦', '計算機'], ['手機', '行動電話']]
     """
     # 讀取同義詞 CSV 文件，使用 pandas 讀取
@@ -79,7 +105,7 @@ def load_synonyms(synonym_file: str) -> list:
     return synonymes # 回傳處理後的同義詞列表
 
 
-def read_coldata(df: pd.DataFrame, col_no: int) -> list: # Corrected return type hint
+def read_coldata(df: pd.DataFrame, col_no: int) -> List[Any]: # Use List[Any] for mixed types
     """
     從 pandas DataFrame 中讀取指定欄位編號前綴的資料。
 
@@ -111,32 +137,33 @@ def read_coldata(df: pd.DataFrame, col_no: int) -> list: # Corrected return type
     # 將選取的欄位資料轉換為 Python list 並回傳
     return col_data.to_list()
 
-def initialize_ckip_models(use_cuda=False):
+def initialize_ckip_models(use_cuda=False) -> WS: # Update return type hint
     """
-    初始化 CKIP Tagger 模型 (WS, POS, NER)。
+    初始化 CKIP Tagger 模型 (WS). POS and NER are no longer initialized here.
 
     參數:
     use_cuda (bool): 是否嘗試使用 GPU 加速。預設為 False。
 
     回傳:
-    tuple: 包含 WS, POS, NER 模型實例的元組。
+    WS: CKIP Word Segmentation 模型實例。
     """
-    print("Initializing CKIP models...")
-    ws = WS(data_folder_path, disable_cuda=not use_cuda) # Word Segmentation (斷詞)
-    pos = POS(data_folder_path, disable_cuda=not use_cuda) # Part-of-speech tagging (詞性標註)
-    ner = NER(data_folder_path, disable_cuda=not use_cuda) # Named-entity recognition (命名實體識別)
-    print("CKIP models initialized.")
-    return ws, pos, ner
+    print("Initializing CKIP WS model...")
+    # Use new variable name
+    ws = WS(ckip_model_data_path, disable_cuda=not use_cuda) # Word Segmentation (斷詞)
+    # pos = POS(ckip_model_data_path, disable_cuda=not use_cuda) # Part-of-speech tagging (詞性標註) - Removed
+    # ner = NER(ckip_model_data_path, disable_cuda=not use_cuda) # Named-entity recognition (命名實體識別) - Removed
+    print("CKIP WS model initialized.")
+    return ws # Return only the ws instance
 
-def preprocess_text_list(data: list) -> list:
+def preprocess_text_list(data: List) -> List[str]: # Use List
     """
     對文本列表進行預處理，移除空白字元。
 
     參數:
-    data (list): 包含待處理文本字串的列表。
+    data (List): 包含待處理文本字串的列表。
 
     回傳:
-    list: 處理後的文本列表。
+    List[str]: 處理後的文本列表。
     """
     text = [] # 初始化儲存預處理後文本的列表
     for row in data: # 迭代輸入的文本列表
@@ -149,32 +176,27 @@ def preprocess_text_list(data: list) -> list:
         #     print(f"Warning: Skipping non-string data: {row}")
     return text
 
-def take_wordCounts(ws: WS, pos: POS, ner: NER, sentence_list: list, synonymes: list) -> dict:
+def take_wordCounts(ws: WS, sentence_list: List[str], synonymes: List[List[str]]) -> Dict[str, int]: # Use List, Dict
     """
-    使用已初始化的 CKIP 模型對預處理過的句子列表進行斷詞並統計詞頻。
+    使用已初始化的 CKIP WS 模型對預處理過的句子列表進行斷詞並統計詞頻。
+    POS and NER parameters removed.
 
     參數:
     ws (WS): 已初始化的 CKIP Word Segmentation 模型。
-    pos (POS): 已初始化的 CKIP Part-of-speech tagging 模型。
-    ner (NER): 已初始化的 CKIP Named-entity recognition 模型。
-    sentence_list (list): 預處理過的句子列表。
-    synonymes (list): 從同義詞檔案載入的同義詞列表。
+    sentence_list (List[str]): 預處理過的句子列表。
+    synonymes (List[List[str]]): 從同義詞檔案載入的同義詞列表。
 
     回傳:
-    dict: 詞頻統計結果，鍵為詞彙，值為該詞彙出現的次數，按次數降序排列。
+    Dict[str, int]: 詞頻統計結果，鍵為詞彙，值為該詞彙出現的次數，按次數降序排列。
     """
     # 載入同義詞詞典並建立權重
     word_to_weight = {string: 2 for string_list in synonymes for string in string_list if len(string) > 2}
     dictionary = construct_dictionary(word_to_weight)
 
-    # 進行斷詞、詞性標註、命名實體識別
+    # 進行斷詞
     print("Performing word segmentation...")
     word_sentence_list = ws(sentence_list, coerce_dictionary=dictionary)
-    #print("Performing POS tagging...")
-    #pos_sentence_list = pos(word_sentence_list)
-    #print("Performing NER...")
-    #entity_sentence_list = ner(word_sentence_list, pos_sentence_list)
-    # 注意：entity_sentence_list 在此函數中目前未使用，但保留以備將來擴展
+    # POS/NER calls removed
 
     # 統計斷詞結果的詞頻
     print("Counting words...")
@@ -185,224 +207,214 @@ def take_wordCounts(ws: WS, pos: POS, ner: NER, sentence_list: list, synonymes: 
     print("Word counting finished.")
     return word_counts
 
-def make_removedFile(counts: dict, col_no: int, removes_list: list):
+def calculate_removed_words(counts: Dict[str, int], removes_list: List[str]) -> Dict[str, int]: # Use Dict, List
     """
-    根據提供的停用詞列表從詞頻統計結果中移除指定的詞彙，
-    並將被移除的詞彙及其次數輸出到指定的檔案。
-    此函數操作於輸入字典的副本上，不會修改原始字典。
+    Identifies words from the counts dictionary that are present in the removes_list.
+    Operates on a copy and does not modify the original counts dictionary.
 
     參數:
-    counts (dict): 原始詞頻統計結果字典。
-    col_no (int): 正在處理的原始資料欄位編號，用於命名輸出檔案。
-    removes_list (list): 從停用詞檔案載入的停用詞列表。
+    counts (Dict[str, int]): 原始詞頻統計結果字典。
+    removes_list (List[str]): 從停用詞檔案載入的停用詞列表。
+
+    回傳:
+    Dict[str, int]: A dictionary containing the removed words and their counts.
     """
     counts_copy = counts.copy() # Create a copy to avoid modifying the original
     removeds = {} # 初始化儲存被移除詞彙及其次數的字典
 
     # 迭代停用詞列表
     for rmw in removes_list: # Use the parameter removes_list
-        try:
-            # 嘗試從詞頻字典 counts_copy 中移除停用詞 rmw
-            # dict.pop(key) 會移除鍵 key 並返回其對應的值
-            no = counts_copy.pop(rmw) # Operate on the copy
-            # 將被移除的詞彙及其次數存入 removeds 字典
+        if rmw in counts_copy:
+            # Get the count from the copy and store it
+            no = counts_copy.pop(rmw) # Pop from copy to get count and mark as processed here
             removeds[rmw] = no
-        except KeyError: # 若停用詞原本就不在 counts_copy 中，會引發 KeyError
-            # 忽略這個錯誤，繼續處理下一個停用詞
-            ...
+        # No need for try-except if using 'in' check
 
+    return removeds
+
+def write_removed_files(removeds: dict, col_no: int, output_dir: str):
+    """
+    Writes the removed words and their counts to output files.
+
+    參數:
+    removeds (dict): Dictionary of removed words and counts.
+    col_no (int): Column number for naming files.
+    output_dir (str): Directory to save the files.
+    """
     # 建立輸出排除詞檔案的路徑
-    # word_cloud_path 從 config.py 讀取，是存放文字雲相關檔案的目錄
-    removeout_path = word_cloud_path + f'/排除詞_{col_no}.txt'
-    # 開啟檔案準備寫入，使用 utf-8 編碼
+    removeout_path = os.path.join(output_dir, f'排除詞_{col_no}.txt')
     with open(removeout_path, 'w', encoding='utf-8') as f:
-        # 迭代被移除詞彙字典
         for key, value in removeds.items():
-            # 將每個詞彙和其次數寫入檔案，格式為 "詞彙:次數"
             f.write(f'{key}:{value}\n')
 
-    # 建立輸出排除詞文字雲檔案的路徑 (用於生成文字雲的原始文本)
-    removewdcnt_path = word_cloud_path + f'/排除詞文字雲_{col_no}.txt'
-    # 開啟檔案準備寫入，使用 utf-8 編碼
+    # 建立輸出排除詞文字雲檔案的路徑
+    removewdcnt_path = os.path.join(output_dir, f'排除詞文字雲_{col_no}.txt')
     with open(removewdcnt_path, 'w', encoding='utf-8') as f:
-        # 迭代被移除詞彙字典
         for key, value in removeds.items():
-            # 將每個詞彙重複寫入 value (次數) 次，並以空格分隔
-            # 這會產生一個適合直接輸入文字雲生成工具的文本
-            for i in range(value):
+            for _ in range(value): # Use _ for unused loop variable
                 f.write(f'{key} ')
 
-
-def make_synonymFile(counts: dict, col_no: int, synonyms: list):
+def calculate_synonym_groups(counts: Dict[str, int], synonyms: List[List[str]]) -> Tuple[Dict[str, int], Dict[str, int]]: # Use Dict, List, Tuple
     """
-    根據提供的同義詞列表合併詞頻統計結果中的同義詞,
-    將合併後的同義詞 (以第一個詞為代表) 及其總次數輸出到指定的檔案。
-    此函數操作於輸入字典的副本上，不會修改原始字典。
+    Aggregates counts for synonym groups and identifies words removed during aggregation.
+    Operates on a copy and does not modify the original counts dictionary.
 
     參數:
-    counts (dict): 原始詞頻統計結果字典。
-    col_no (int): 正在處理的原始資料欄位編號，用於命名輸出檔案。
-    synonyms (list): 從同義詞檔案載入的同義詞列表。
+    counts (Dict[str, int]): 原始詞頻統計結果字典。
+    synonyms (List[List[str]]): 從同義詞檔案載入的同義詞列表。
+
+    回傳:
+    Tuple[Dict[str, int], Dict[str, int]]:
+        - synonym_aggregates (dict): Aggregated counts with the first synonym as the key.
+        - processed_synonyms (dict): All individual synonyms processed with their original counts.
     """
-    counts_copy = counts.copy() # Create a copy to avoid modifying the original
-    synonymws = {} # 初始化儲存合併後同義詞及其總次數的字典
+    counts_copy = counts.copy() # Operate on a copy
+    synonym_aggregates = {} # Stores aggregated counts {representative_word: total_count}
+    processed_synonyms = {} # Stores individual synonyms processed {synonym: original_count}
 
-    # 迭代每一組同義詞列表
     for sw in synonyms:
-        totalw = 0 # 初始化該組同義詞的總次數
-        if not sw:  # 如果同義詞組為空列表，則跳過
+        totalw = 0
+        if not sw:
             continue
-
-        # 使用該組同義詞列表中的第一個詞作為這組同義詞的代表詞 (關鍵詞)
         kwywd = sw[0]
+        group_synonyms_found = {}
 
-        # 迭代該組同義詞中的每一個詞彙 w
         for w in sw:
-            # 檢查該詞彙 w 是否存在於目前的詞頻字典 counts_copy 中
             if w in counts_copy:
-                # 如果存在，將其 次數 加入 totalw
-                totalw += counts_copy[w] # Read from the copy
-                # 從 counts_copy 字典中移除該詞彙 w，避免後續重複計算或被單獨輸出
-                counts_copy.pop(w) # Operate on the copy
-            # 此處原有的 try...except pass 結構可以省略，因為 if w in counts_copy 已經處理了 KeyError 的情況
+                count = counts_copy.pop(w) # Pop from copy to aggregate and mark as processed
+                totalw += count
+                group_synonyms_found[w] = count
+                processed_synonyms[w] = count # Track individual processed synonyms
 
-        # 如果該組同義詞的總次數不為 0 (表示至少有一個同義詞出現在原始文本中)
         if totalw != 0:
-            # 將代表詞 kwywd 和其總次數 totalw 存入 synonymws 字典
-            synonymws[kwywd] = totalw
+            synonym_aggregates[kwywd] = totalw
 
+    return synonym_aggregates, processed_synonyms
+
+
+def write_synonym_files(synonym_aggregates: dict, col_no: int, output_dir: str):
+    """
+    Writes the aggregated synonym counts to output files.
+
+    參數:
+    synonym_aggregates (dict): Dictionary of aggregated synonym counts.
+    col_no (int): Column number for naming files.
+    output_dir (str): Directory to save the files.
+    """
     # 建立輸出同義詞檔案的路徑
-    synonymout_path = word_cloud_path + f'/同義詞_{col_no}.txt'
-    # 開啟檔案準備寫入，使用 utf-8 編碼
+    synonymout_path = os.path.join(output_dir, f'同義詞_{col_no}.txt')
     with open(synonymout_path, 'w', encoding='utf-8') as f:
-        # 迭代合併後的同義詞字典
-        for key, value in synonymws.items():
-            # 將每個代表詞和其總次數寫入檔案，格式為 "代表詞:總次數"
+        for key, value in synonym_aggregates.items():
             f.write(f'{key}:{value}\n')
 
-    # 建立輸出同義詞文字雲檔案的路徑 (用於生成文字雲的原始文本)
-    synonymws_path = word_cloud_path + f'/同義詞文字雲_{col_no}.txt'
-    # 開啟檔案準備寫入，使用 utf-8 編碼
+    # 建立輸出同義詞文字雲檔案的路徑
+    synonymws_path = os.path.join(output_dir, f'同義詞文字雲_{col_no}.txt')
     with open(synonymws_path, 'w', encoding='utf-8') as f:
-        # 迭代合併後的同義詞字典
-        for key, value in synonymws.items():
-            # 將每個代表詞重複寫入 value (總次數) 次，並以空格分隔
-            for i in range(value):
+        for key, value in synonym_aggregates.items():
+            for _ in range(value): # Use _ for unused loop variable
                 f.write(f'{key} ')
 
-def filter_word_counts(word_counts: dict, remove_list: list, synonym_list: list, col_no: int) -> dict:
+
+def calculate_filtered_counts(word_counts: Dict[str, int], remove_list: List[str], synonym_list: List[List[str]]) -> Dict[str, int]: # Use Dict, List
     """
-    從詞頻統計結果中移除停用詞和所有同義詞（包括代表詞），並將結果存檔。
-    
+    Removes stopwords and all synonyms from the word counts.
+
     參數:
-    word_counts (dict): 詞頻統計結果字典。
-    remove_list (list): 停用詞列表。
-    synonym_list (list): 同義詞列表，每個子列表包含一組同義詞。
-    col_no (int): 正在處理的原始資料欄位編號，用於命名輸出檔案。
-    output_path (str): 儲存輸出檔案的目錄路徑。
-    
+    word_counts (Dict[str, int]): 詞頻統計結果字典。
+    remove_list (List[str]): 停用詞列表。
+    synonym_list (List[List[str]]): 同義詞列表。
+
     回傳:
-    dict: 過濾後的詞頻統計結果字典。
+    Dict[str, int]: 過濾後的詞頻統計結果字典。
     """
-    # 創建一個副本，避免修改原始字典
     filtered_counts = word_counts.copy()
-    
-    # 收集所有需要排除的詞彙
     words_to_exclude = set(remove_list)
-    
-    # 添加所有同義詞到排除集合中
     for group in synonym_list:
         for word in group:
-            if word:  # 確保不加入空字串
+            if word:
                 words_to_exclude.add(word)
-    
-    # 從詞頻字典中移除需要排除的詞彙
+
     for word in words_to_exclude:
         if word in filtered_counts:
             filtered_counts.pop(word)
-    
-    #print(f"Filtered word counts: removed {len(words_to_exclude)} words from dictionary")
-    #print(f"Original count: {len(word_counts)}, Filtered count: {len(filtered_counts)}")
 
-    # 建立輸出過濾詞檔案的路徑
-    filtered_output_path = os.path.join(word_cloud_path, f'過濾詞_{col_no}.txt')
-    # 開啟檔案準備寫入，使用 utf-8 編碼
-    with open(filtered_output_path, 'w', encoding='utf-8') as f:
-        # 迭代過濾後的詞彙字典
-        for key, value in filtered_counts.items():
-            # 將每個詞彙和其次數寫入檔案，格式為 "詞彙:次數"
-            f.write(f'{key}:{value}\n')
-    #print(f"Filtered word counts saved to: {filtered_output_path}")
-    
     return filtered_counts
+
+def write_filtered_file(filtered_counts: dict, col_no: int, output_dir: str):
+    """
+    Writes the final filtered word counts to a file.
+
+    參數:
+    filtered_counts (dict): The filtered word counts.
+    col_no (int): Column number for naming the file.
+    output_dir (str): Directory to save the file.
+    """
+    filtered_output_path = os.path.join(output_dir, f'過濾詞_{col_no}.txt')
+    with open(filtered_output_path, 'w', encoding='utf-8') as f:
+        for key, value in filtered_counts.items():
+            f.write(f'{key}:{value}\n')
+
 
 def process_multiple_columns(column_numbers, use_cuda=False):
     """
     Process multiple columns from an Excel file using CKIP text analysis pipeline.
-    
-    This function handles downloading models, initialization, and processes each
-    specified column through the entire text analysis workflow including:
-    - Word segmentation
-    - Filtering by stopwords
-    - Handling synonyms
-    - Generating output files
-    
-    Parameters:
-    column_numbers (list): List of column numbers to process
-    use_cuda (bool): Whether to use GPU acceleration (default: False)
-    
-    Returns:
-    dict: Dictionary with column numbers as keys and their filtered word counts as values
+    Refactored to separate calculation and file writing.
     """
     # Download CKIP model data if needed
     download_ckip_data()
 
-    # Initialize models (with or without CUDA)
-    ws_model, pos_model, ner_model = initialize_ckip_models(use_cuda=use_cuda)
+    # Initialize models (with or without CUDA) - Now correctly receives only ws_model
+    ws_model: WS = initialize_ckip_models(use_cuda=use_cuda) # Assign the returned WS instance
 
     # Read the Excel file
     print(f"Reading data from: {data_file}")
     df = pd.read_excel(data_file)
-    
+
     # Load synonyms and stopwords (only need to do this once)
     print(f"Loading synonyms from: {synonym_file}")
     synonym_list = load_synonyms(synonym_file)
-    
+
     print(f"Loading stopwords from: {remove_file}")
     remove_list = load_removes(remove_file)
-    
+
+    # Ensure output directory exists (moved here for clarity)
+    check_and_create_folder(word_cloud_path)
+
     # Process each column
     for col in column_numbers:
         print(f"\n=== Processing column {col} ===")
-        
+
         # Read column data
         print(f"Reading data from column prefix: {col}")
         column_data = read_coldata(df, col)
-        
+
         # Preprocess text
         print("Preprocessing text...")
         processed_text = preprocess_text_list(column_data)
-        
+
         # Perform word segmentation and count frequencies
         print("Counting words...")
-        # Call the CKIP model to get word counts
-        word_counts = take_wordCounts(ws_model, pos_model, ner_model, processed_text, synonym_list)
-        
-        # Process stopwords
+        # Pass only ws_model, pos/ner removed
+        word_counts = take_wordCounts(ws_model, processed_text, synonym_list)
+
+        # Calculate and write removed words (stopwords)
         print("Processing removals...")
-        make_removedFile(word_counts, col, remove_list)
-        
-        # Process synonyms
+        removed_words_dict = calculate_removed_words(word_counts, remove_list)
+        write_removed_files(removed_words_dict, col, word_cloud_path)
+
+        # Calculate and write synonym aggregations
         print("Processing synonyms...")
-        make_synonymFile(word_counts, col, synonym_list)
-        
-        # Filter word counts and save results
+        # Note: calculate_synonym_groups now returns two dicts, we only need the first for writing synonym files
+        synonym_aggregates_dict, _ = calculate_synonym_groups(word_counts, synonym_list)
+        write_synonym_files(synonym_aggregates_dict, col, word_cloud_path)
+
+        # Calculate and write final filtered word counts
         print("Filtering word counts...")
-        # Call the filter function to remove stopwords and synonyms from word counts
-        filter_word_counts(word_counts, remove_list, synonym_list, col)
-        
+        filtered_counts_dict = calculate_filtered_counts(word_counts, remove_list, synonym_list)
+        write_filtered_file(filtered_counts_dict, col, word_cloud_path)
+
         print(f"Column {col} processing complete.")
-    
+
     print(f"\nAll columns processing complete. Output files generated in: {word_cloud_path}")
 
 
