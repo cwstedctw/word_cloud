@@ -30,13 +30,10 @@ env/
 .vscode/
 *.swp
 *.swo
+*.whl
 
 # CKIP specific
 model/
 word_cloud/
 information/*.txt
 *.zip
-
-# Jupyter Notebook
-.ipynb_checkpoints
-git status
